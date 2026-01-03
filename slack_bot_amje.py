@@ -175,6 +175,8 @@ def send_status(channel_id):
     except Exception as e:
         log(f"❌ Error sending status: {e}")
 
+
+
 def delete_study(channel_id, user_id):
     if channel_id not in studies:
         try:
