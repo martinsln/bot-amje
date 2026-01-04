@@ -2,7 +2,7 @@
 import os
 import sqlite3
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -163,19 +163,30 @@ def send_status(channel_id):
         return
     
     s = studies[channel_id]
-    msg = format_message(s["name"], s["creator"], s["check"])
     docs_done = sum(1 for doc in s["check"].values() if doc["done"])
+    
+    # Format simplifié pour le status
+    def format_doc_status(doc_name, doc_data):
+        icon = "✅" if doc_data["done"] else "⬜"
+        if doc_data["done"] and doc_data["by"]:
+            date_str = datetime.fromisoformat(doc_data["date"]).strftime("%d/%m/%Y %H:%M") if doc_data["date"] else ""
+            return f"{icon} {doc_name} - _validé par {doc_data['by']} le {date_str}_"
+        return f"{icon} {doc_name}"
+    
+    status_msg = (f"*📊 Statut de l'étude #{s['name']}*\n\n"
+                  f"*Documents :*\n"
+                  f"{format_doc_status('Devis', s['check']['devis'])}\n"
+                  f"{format_doc_status('Récapitulatif de mission', s['check']['rm'])}\n"
+                  f"{format_doc_status('Convention d étude', s['check']['ce'])}\n"
+                  f"{format_doc_status('PVRF', s['check']['pvrf'])}\n\n"
+                  f"📈 Progression : {docs_done}/4 documents validés ({int(docs_done/4*100)}%)")
     
     try:
         requests.post("https://slack.com/api/chat.postMessage", headers=HEADERS,
-                     json={"channel": channel_id, 
-                           "text": f"*Statut de l'étude #{s['name']}*\n\n{msg}\n\n"
-                                  f"📊 Progression : {docs_done}/4 documents validés"}, timeout=5)
+                     json={"channel": channel_id, "text": status_msg}, timeout=5)
         log(f"✅ Status sent for #{s['name']}")
     except Exception as e:
         log(f"❌ Error sending status: {e}")
-
-
 
 def delete_study(channel_id, user_id):
     if channel_id not in studies:
@@ -211,7 +222,6 @@ def delete_study(channel_id, user_id):
             log(f"✅ Study deleted and channel archived: #{study_name} by {user_name}")
         else:
             log(f"⚠️ Study deleted but could not archive channel: {r.get('error')}")
-            # Envoyer un message avant que le channel soit potentiellement supprimé
             try:
                 requests.post("https://slack.com/api/chat.postMessage", headers=HEADERS,
                              json={"channel": channel_id, 
@@ -268,174 +278,25 @@ def dashboard():
     completed = sum(1 for s in studies.values() if all(doc["done"] for doc in s["check"].values()))
     in_progress = total - completed
     
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>AMJE Study Tracker</title>
-        <meta charset="utf-8">
-        <style>
-            body {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                max-width: 1200px;
-                margin: 50px auto;
-                padding: 20px;
-                background: #f8f9fa;
-            }}
-            h1 {{
-                color: #2c3e50;
-                border-bottom: 3px solid #3498db;
-                padding-bottom: 15px;
-            }}
-            .stats {{
-                display: flex;
-                gap: 20px;
-                margin: 30px 0;
-            }}
-            .stat-card {{
-                flex: 1;
-                background: white;
-                padding: 25px;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                text-align: center;
-            }}
-            .stat-number {{
-                font-size: 48px;
-                font-weight: bold;
-                color: #3498db;
-            }}
-            .stat-label {{
-                color: #7f8c8d;
-                margin-top: 10px;
-                font-size: 14px;
-            }}
-            .study-card {{
-                background: white;
-                padding: 20px;
-                margin: 15px 0;
-                border-radius: 8px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }}
-            .study-header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 15px;
-            }}
-            .study-name {{
-                font-size: 20px;
-                font-weight: bold;
-                color: #2c3e50;
-            }}
-            .progress-bar {{
-                height: 8px;
-                background: #ecf0f1;
-                border-radius: 4px;
-                overflow: hidden;
-                margin: 10px 0;
-            }}
-            .progress-fill {{
-                height: 100%;
-                background: #27ae60;
-                transition: width 0.3s;
-            }}
-            .docs {{
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 15px;
-                margin-top: 15px;
-            }}
-            .doc {{
-                padding: 12px;
-                background: #ecf0f1;
-                border-radius: 5px;
-                font-size: 14px;
-            }}
-            .doc.done {{
-                background: #d5f4e6;
-                color: #27ae60;
-            }}
-            .doc-title {{
-                font-weight: bold;
-                margin-bottom: 5px;
-            }}
-            .doc-meta {{
-                font-size: 12px;
-                color: #7f8c8d;
-                font-style: italic;
-            }}
-            .completed {{ color: #27ae60; }}
-            .progress {{ color: #e67e22; }}
-        </style>
-    </head>
-    <body>
-        <h1>📊 AMJE Study Tracker Dashboard</h1>
-        
-        <div class="stats">
-            <div class="stat-card">
-                <div class="stat-number">{total}</div>
-                <div class="stat-label">Total Studies</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number completed">{completed}</div>
-                <div class="stat-label">Completed</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number progress">{in_progress}</div>
-                <div class="stat-label">In Progress</div>
-            </div>
-        </div>
-        
-        <h2>📚 Active Studies</h2>
-    """
-    
+    # Préparer les données pour le template
+    studies_data = []
     for cid, s in studies.items():
         docs_done = sum(1 for doc in s["check"].values() if doc["done"])
         progress_pct = (docs_done / 4) * 100
         
-        def render_doc(name, data):
-            css_class = "doc done" if data["done"] else "doc"
-            icon = "✅" if data["done"] else "⬜"
-            meta = ""
-            if data["done"] and data["by"]:
-                date_str = datetime.fromisoformat(data["date"]).strftime("%d/%m/%Y %H:%M") if data["date"] else ""
-                meta = f'<div class="doc-meta">Par {data["by"]} le {date_str}</div>'
-            return f'<div class="{css_class}"><div class="doc-title">{icon} {name}</div>{meta}</div>'
-        
-        html += f"""
-        <div class="study-card">
-            <div class="study-header">
-                <div class="study-name">#{s['name']}</div>
-                <div>👤 {s['creator']}</div>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {progress_pct}%"></div>
-            </div>
-            <div style="text-align: center; color: #7f8c8d; margin: 10px 0;">
-                {docs_done}/4 documents completed ({progress_pct:.0f}%)
-            </div>
-            <div class="docs">
-                {render_doc('Devis', s['check']['devis'])}
-                {render_doc('Récapitulatif de mission', s['check']['rm'])}
-                {render_doc("Convention d'étude", s['check']['ce'])}
-                {render_doc('PVRF', s['check']['pvrf'])}
-            </div>
-        </div>
-        """
+        studies_data.append({
+            "name": s["name"],
+            "creator": s["creator"],
+            "progress_pct": progress_pct,
+            "docs_done": docs_done,
+            "check": s["check"]
+        })
     
-    if not studies:
-        html += "<p style='text-align: center; color: #7f8c8d; padding: 40px;'>No active studies yet.</p>"
-    
-    html += """
-        <footer style="text-align: center; margin-top: 50px; color: #7f8c8d; font-size: 12px;">
-            AMJE Bordeaux Study Tracker • Created by Martin Saulnier
-        </footer>
-    </body>
-    </html>
-    """
-    
-    return html
+    return render_template("dashboard.html", 
+                          total=total, 
+                          completed=completed, 
+                          in_progress=in_progress,
+                          studies=studies_data)
 
 if __name__ == "__main__":
     print("🤖 Starting AMJE Slack Bot...")

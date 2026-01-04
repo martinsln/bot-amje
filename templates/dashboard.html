@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AMJE Study Tracker</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            flex: 1;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .study-card {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .study-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .study-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .progress-bar {
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #27ae60;
+            transition: width 0.3s;
+        }
+        .docs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .doc {
+            padding: 12px;
+            background: #ecf0f1;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .doc.done {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+        .doc-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .doc-meta {
+            font-size: 12px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .completed {
+            color: #27ae60;
+        }
+        .progress {
+            color: #e67e22;
+        }
+        .empty-state {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 AMJE Study Tracker Dashboard</h1>
+    
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-number">{{ total }}</div>
+            <div class="stat-label">Total Studies</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number completed">{{ completed }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number progress">{{ in_progress }}</div>
+            <div class="stat-label">In Progress</div>
+        </div>
+    </div>
+    
+    <h2>📚 Active Studies</h2>
+    
+    {% if studies %}
+        {% for study in studies %}
+        <div class="study-card">
+            <div class="study-header">
+                <div class="study-name">#{{ study.name }}</div>
+                <div>👤 {{ study.creator }}</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ (study.docs_done / 4 * 100)|int }}%;"></div>
+            </div>
+            <div style="text-align: center; color: #7f8c8d; margin: 10px 0;">
+                {{ study.docs_done }}/4 documents completed ({{ (study.docs_done / 4 * 100)|int }}%)
+            </div>
+            <div class="docs">
+                <div class="doc {% if study.check.devis.done %}done{% endif %}">
+                    <div class="doc-title">
+                        {% if study.check.devis.done %}✅{% else %}⬜{% endif %} Devis
+                    </div>
+                    {% if study.check.devis.done and study.check.devis.by %}
+                    <div class="doc-meta">
+                        Par {{ study.check.devis.by }} le {{ study.check.devis.date[:10] }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="doc {% if study.check.rm.done %}done{% endif %}">
+                    <div class="doc-title">
+                        {% if study.check.rm.done %}✅{% else %}⬜{% endif %} Récapitulatif de mission
+                    </div>
+                    {% if study.check.rm.done and study.check.rm.by %}
+                    <div class="doc-meta">
+                        Par {{ study.check.rm.by }} le {{ study.check.rm.date[:10] }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="doc {% if study.check.ce.done %}done{% endif %}">
+                    <div class="doc-title">
+                        {% if study.check.ce.done %}✅{% else %}⬜{% endif %} Convention d'étude
+                    </div>
+                    {% if study.check.ce.done and study.check.ce.by %}
+                    <div class="doc-meta">
+                        Par {{ study.check.ce.by }} le {{ study.check.ce.date[:10] }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="doc {% if study.check.pvrf.done %}done{% endif %}">
+                    <div class="doc-title">
+                        {% if study.check.pvrf.done %}✅{% else %}⬜{% endif %} PVRF
+                    </div>
+                    {% if study.check.pvrf.done and study.check.pvrf.by %}
+                    <div class="doc-meta">
+                        Par {{ study.check.pvrf.by }} le {{ study.check.pvrf.date[:10] }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty-state">No active studies yet.</p>
+    {% endif %}
+    
+    <footer style="text-align: center; margin-top: 50px; color: #7f8c8d; font-size: 12px;">
+        AMJE Bordeaux Study Tracker • Created by Martin Saulnier
+    </footer>
+</body>
+</html>
